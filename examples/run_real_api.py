@@ -18,10 +18,15 @@ import asyncio
 import logging
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from mybot.agent import AgentRunSpec, AgentRunner
 from mybot.providers import OpenAICompatProvider
 from mybot.tools import EchoTool, GetTimeTool, ReverseTool, ToolRegistry
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 async def stream_printer(delta: str) -> None:
@@ -49,8 +54,8 @@ SYSTEM_PROMPT = (
 async def main() -> None:
     if not os.environ.get("MYBOT_API_KEY"):
         print(
-            "MYBOT_API_KEY is not set. Export it (and optionally MYBOT_BASE_URL, "
-            "MYBOT_MODEL) then re-run this script.",
+            "MYBOT_API_KEY is not set. Fill it into .env (see .env.example) "
+            "then re-run this script.",
             file=sys.stderr,
         )
         return
