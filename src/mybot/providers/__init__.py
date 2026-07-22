@@ -10,6 +10,7 @@ from mybot.providers.mock import (
     MockScriptedProvider,
     MockScriptedStep,
 )
+from mybot.providers.openai_compat import OpenAICompatProvider
 
 __all__ = [
     "GenerationSettings",
@@ -19,5 +20,6 @@ __all__ = [
     "MockKeywordProvider",
     "MockScriptedProvider",
     "MockScriptedStep",
+    "OpenAICompatProvider",
     "ToolCallRequest",
 ]
