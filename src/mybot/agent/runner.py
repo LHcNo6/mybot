@@ -8,15 +8,16 @@ reached.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from loguru import logger
-
 if TYPE_CHECKING:
     from mybot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
     from mybot.tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -136,7 +137,7 @@ class AgentRunner:
     ) -> list[Any]:
         results: list[Any] = []
         for tc in tool_calls:
-            logger.info("Tool call: {}({})", tc.name, tc.arguments)
+            logger.info("Tool call: %s(%s)", tc.name, tc.arguments)
             result = await tools.execute(tc.name, tc.arguments)
             results.append(result)
         return results
