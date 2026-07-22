@@ -10,9 +10,13 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from mybot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+    from mybot.tools.registry import ToolRegistry
 
 
 @dataclass
