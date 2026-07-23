@@ -98,7 +98,7 @@ or pure exploration/reading tasks.
 | 4 | OpenAI-compatible real-API provider | ✅ |
 | 4.1 | Auto-load `.env` via python-dotenv | ✅ |
 | 5 | Multi-turn REPL | ✅ |
-| 6.1 | Sliding-window compaction (user-turn aligned) | 🔜 next |
+| 6.1 | Sliding-window compaction (user-turn aligned) | ✅ |
 
 ## Reference
 
