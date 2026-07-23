@@ -99,6 +99,7 @@ or pure exploration/reading tasks.
 | 4.1 | Auto-load `.env` via python-dotenv | ✅ |
 | 5 | Multi-turn REPL | ✅ |
 | 6.1 | Sliding-window compaction (user-turn aligned) | ✅ |
+| 6.2 | LLM-summarization of dropped messages | ✅ |
 
 ## Reference
 
