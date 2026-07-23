@@ -4,7 +4,7 @@
 
 ## Working principles (NON-NEGOTIABLE)
 
-These three rules outrank any other consideration. If a request seems to
+These four rules outrank any other consideration. If a request seems to
 conflict with them, surface the conflict before coding.
 
 ### 1. Minimal increment per stage
@@ -32,6 +32,26 @@ new module, ask:
 If mybot invents a new abstraction nananobot doesn't have, that's a
 **red flag** — either we're wrong, or we should record why we're
 intentionally diverging in `DIVERGENCES.md`.
+
+### 4. Commit & push at every stage boundary
+A stage is **not finished** until it's landed on `origin/main`. After
+the green test, immediately:
+
+```
+git add <touched files only>
+git commit -m "Stage N: <one-line summary>"
+git push origin main
+```
+
+Rules:
+
+- One commit per stage. Don't bundle unrelated changes.
+- The commit message must start with `Stage N:` so the log stays
+  scannable as a stage sequence.
+- `.env`, `__pycache__/`, `.egg-info/` etc. must never enter a commit.
+  Verify with `git status` before every commit.
+- "It works on my machine" is not done. Pushed == done.
+- A stage with uncommitted work is a stage that doesn't exist yet.
 
 ## Project context
 
@@ -62,7 +82,7 @@ intentionally diverging in `DIVERGENCES.md`.
 | 3 | Mock providers + sample tools + runnable demo | ✅ |
 | 4 | OpenAI-compatible real-API provider | ✅ |
 | 4.1 | Auto-load `.env` via python-dotenv | ✅ |
-| 5 | Multi-turn REPL | 🔜 next |
+| 5 | Multi-turn REPL | ✅ |
 
 ## Reference
 
