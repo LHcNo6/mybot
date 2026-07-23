@@ -4,7 +4,7 @@
 
 ## Working principles (NON-NEGOTIABLE)
 
-These four rules outrank any other consideration. If a request seems to
+These five rules outrank any other consideration. If a request seems to
 conflict with them, surface the conflict before coding.
 
 ### 1. Minimal increment per stage
@@ -53,6 +53,21 @@ Rules:
 - "It works on my machine" is not done. Pushed == done.
 - A stage with uncommitted work is a stage that doesn't exist yet.
 
+### 5. Explain approach before implementing
+For any non-trivial stage (≥ ~20 lines of new logic, or new
+abstractions), the agent MUST lay out the approach **in prose**
+before writing code:
+
+- What problem we're solving.
+- What alternatives were considered.
+- Which we picked and why.
+- The minimum code shape (function signatures, key data structures).
+- How we'll verify it.
+
+Only after the user confirms (or adjusts) do we switch to writing
+files. This rule does NOT apply to one-line fixes, trivial edits,
+or pure exploration/reading tasks.
+
 ## Project context
 
 - Python 3.11+, asyncio, stdlib `logging` only (no loguru).
@@ -83,6 +98,7 @@ Rules:
 | 4 | OpenAI-compatible real-API provider | ✅ |
 | 4.1 | Auto-load `.env` via python-dotenv | ✅ |
 | 5 | Multi-turn REPL | ✅ |
+| 6.1 | Sliding-window compaction (user-turn aligned) | 🔜 next |
 
 ## Reference
 

@@ -29,7 +29,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from mybot.agent import AgentRunSpec, AgentRunner
+from mybot.agent import AgentRunSpec, AgentRunner, compact_messages
 from mybot.providers import OpenAICompatProvider
 from mybot.tools import EchoTool, GetTimeTool, ReverseTool, ToolRegistry
 
@@ -40,6 +40,7 @@ SYSTEM_PROMPT = (
     "Use them whenever the user asks for a reversal, an echo, or the time."
 )
 EXIT_COMMANDS = {"/exit", "/quit"}
+MAX_USER_TURNS = 6
 
 
 async def stream_printer(delta: str) -> None:
@@ -88,6 +89,10 @@ async def main() -> None:
                 return
 
             messages.append({"role": "user", "content": user_input})
+            before = len(messages)
+            messages = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
+            after_compact = len(messages)
+            compacted = after_compact != before
             spec = AgentRunSpec(
                 messages=messages,
                 tools=registry,
@@ -98,10 +103,14 @@ async def main() -> None:
             result = await AgentRunner().run(spec)
             messages = result.messages
 
+            tail = (
+                f" [compacted {before}->{after_compact}]"
+                if compacted else ""
+            )
             print(
-                f"\n[turns={len(messages) - 1} messages, "
+                f"\n[msgs={len(messages)}, "
                 f"tools_used={result.tools_used}, "
-                f"stop_reason={result.stop_reason}]\n"
+                f"stop_reason={result.stop_reason}{tail}]\n"
             )
 
 
