@@ -1,11 +1,14 @@
-"""Stage 5: Multi-turn REPL demo.
+"""Stage 5 / 6: Multi-turn REPL demo with compaction + summarization.
 
 A minimal interactive loop around :class:`AgentRunner`. Each turn:
 
 1. Read a line from stdin.
 2. Append it to the running ``messages`` history.
-3. Run the runner; stream the assistant reply to stdout.
-4. Replace ``messages`` with the runner's returned history and repeat.
+3. Run :func:`compact_messages` to truncate old turns and possibly
+   call :func:`summarize_dropped` on what was dropped, prepending the
+   summary as a system message so the model can reference it.
+4. Run the runner; stream the assistant reply to stdout.
+5. Replace ``messages`` with the runner's returned history and repeat.
 
 Run with::
 
@@ -16,8 +19,9 @@ Commands inside the REPL:
     <empty line>   skip this turn
     anything else  sent to the model as a user message
 
-After a handful of turns the request payload will grow linearly with
-history length. Stage 6 will introduce message compaction.
+Stage 6.1 added sliding-window truncation. Stage 6.2 added LLM
+summarization of the dropped portion so the model can still recall
+older decisions.
 """
 
 from __future__ import annotations
@@ -29,7 +33,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from mybot.agent import AgentRunSpec, AgentRunner, compact_messages
+from mybot.agent import (
+    AgentRunSpec,
+    AgentRunner,
+    compact_messages,
+    summarize_dropped,
+)
 from mybot.providers import OpenAICompatProvider
 from mybot.tools import EchoTool, GetTimeTool, ReverseTool, ToolRegistry
 
@@ -40,7 +49,8 @@ SYSTEM_PROMPT = (
     "Use them whenever the user asks for a reversal, an echo, or the time."
 )
 EXIT_COMMANDS = {"/exit", "/quit"}
-MAX_USER_TURNS = 6
+MAX_USER_TURNS = 12
+SUMMARY_PREFIX = "[Earlier conversation summary]\n"
 
 
 async def stream_printer(delta: str) -> None:
@@ -68,14 +78,26 @@ def configure_logging() -> None:
     runner_logger.propagate = False
 
 
+def configure_stdout() -> None:
+    """Allow emoji / non-ASCII characters to print on Windows consoles
+    (cp936 / cp1252) by reconfiguring stdout to UTF-8 with replacement."""
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    except (AttributeError, ValueError):
+        pass
+
+
 async def main() -> None:
     configure_logging()
+    configure_stdout()
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     registry = build_registry()
 
     async with OpenAICompatProvider() as provider:
-        print(f"mybot REPL ready (model={provider.get_default_model()}). "
-              f"Type /exit to quit.\n")
+        print(
+            f"mybot REPL ready (model={provider.get_default_model()}). "
+            f"Type /exit to quit.\n"
+        )
         while True:
             try:
                 user_input = input("> ").strip()
@@ -89,10 +111,20 @@ async def main() -> None:
                 return
 
             messages.append({"role": "user", "content": user_input})
-            before = len(messages)
-            messages = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
-            after_compact = len(messages)
-            compacted = after_compact != before
+
+            kept, dropped = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
+            summary_text: str | None = None
+            if dropped:
+                summary_text = await summarize_dropped(
+                    provider, dropped, model=provider.get_default_model()
+                )
+                if summary_text:
+                    kept.insert(
+                        1,
+                        {"role": "system", "content": SUMMARY_PREFIX + summary_text},
+                    )
+            messages = kept
+
             spec = AgentRunSpec(
                 messages=messages,
                 tools=registry,
@@ -103,10 +135,7 @@ async def main() -> None:
             result = await AgentRunner().run(spec)
             messages = result.messages
 
-            tail = (
-                f" [compacted {before}->{after_compact}]"
-                if compacted else ""
-            )
+            tail = f" [summary={len(summary_text or '')}c]" if summary_text else ""
             print(
                 f"\n[msgs={len(messages)}, "
                 f"tools_used={result.tools_used}, "

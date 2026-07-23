@@ -9,6 +9,9 @@ partner was dropped.
 
 This aligns with nananobot's ``SessionManager.retain_recent_legal_suffix``
 — the same "legal boundary" idea, expressed in the simplest possible form.
+
+Stage 6.2: also returns the dropped body slice so the caller can hand
+it to :mod:`mybot.agent.summarize` for LLM-based summarization.
 """
 
 from __future__ import annotations
@@ -19,20 +22,22 @@ from typing import Any
 def compact_messages(
     messages: list[dict[str, Any]],
     max_user_turns: int = 10,
-) -> list[dict[str, Any]]:
-    """Return a compacted copy of ``messages``.
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return ``(kept, dropped)`` — compacted copy plus the body slice that was removed.
 
     Invariants:
 
-    - ``messages[0]`` (if it is a system message) is always preserved.
-    - The returned slice contains at most ``max_user_turns`` user messages.
-    - The retained slice starts on a user turn (no leading orphan tool
-      results or tool-bearing assistant messages).
-    - When ``messages`` has fewer user turns than ``max_user_turns``
-      nothing is dropped (no-op for short histories).
+    - ``messages[0]`` (if it is a system message) is always preserved in ``kept``.
+    - ``kept`` contains at most ``max_user_turns`` user messages.
+    - ``kept`` starts on a user turn (no leading orphan tool results
+      or tool-bearing assistant messages).
+    - ``dropped`` contains the body messages that were removed, in
+      original order, excluding the system message.
+    - When nothing needed dropping, ``dropped`` is ``[]`` and ``kept``
+      equals the input slice.
     """
     if not messages:
-        return list(messages)
+        return list(messages), []
 
     system: dict[str, Any] | None = None
     body: list[dict[str, Any]]
@@ -51,11 +56,16 @@ def compact_messages(
             if user_turns >= max_user_turns:
                 break
 
-    kept = list(reversed(kept_from_tail))
+    kept_body = list(reversed(kept_from_tail))
+    kept_body_len = len(kept_body)
 
     # Strip any leading non-user messages (orphaned tool / mid-tool-call
     # assistant). Mirrors nananobot's find_legal_message_start.
-    while kept and kept[0].get("role") != "user":
-        kept.pop(0)
+    while kept_body and kept_body[0].get("role") != "user":
+        kept_body.pop(0)
+        kept_body_len -= 1
 
-    return ([system, *kept] if system is not None else kept)
+    dropped_body = body[: len(body) - kept_body_len]
+
+    kept_full = ([system, *kept_body] if system is not None else kept_body)
+    return kept_full, dropped_body
