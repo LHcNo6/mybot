@@ -122,6 +122,7 @@ regressions.
 | 6.2 | LLM-summarization of dropped messages | ✅ |
 | 7 | Session persistence to JSONL | ✅ |
 | 7.1 | Metadata persistence (title, created_at, updated_at, cursor) | ✅ |
+| 7.2 | Incremental summarization via prev_summary + cursor | ✅ |
 
 ## Reference
 
