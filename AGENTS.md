@@ -102,7 +102,7 @@ regressions.
 |---|---|---|---|
 | OpenAI SDK | `httpx.AsyncClient` raw | `openai.AsyncOpenAI` + lazy import | After we've learned the wire protocol |
 | Provider count | 2 (mock + openai_compat) | 12+ | As needed per real model usage |
-| Hooks system | `HookManager` with pre/post LLM call hooks | `HookManager` with pre/post LLM, pre/post tool | 8.2 (tool hooks), 8.3 (TTL) |
+| Hooks system | `HookManager` with pre/post LLM + pre/post tool call hooks | `HookManager` with pre/post LLM, pre/post tool | 8.3 (TTL via run hooks) |
 | Session / memory | JSONL persistence only; no metadata, no cursor, no TTL | `SessionManager` with metadata, `last_consolidated`, idle-TTL | 7.1+ (metadata), 7.2+ (cursor), 8+ (TTL) |
 | Message compaction | token-budget + count-based truncation + LLM summary | TTL-based auto-compaction in `Manager.compact()` | nananobot's TTL trigger can be added once a timer source is wired in (post-Hooks) |
 
@@ -125,6 +125,7 @@ regressions.
 | 7.1 | Metadata persistence (title, created_at, updated_at, cursor) | ✅ |
 | 7.2 | Incremental summarization via prev_summary + cursor | ✅ |
 | 8.1 | HookManager + pre/post LLM call hooks | ✅ |
+| 8.2 | pre/post tool call hooks | ✅ |
 
 ## Reference
 
