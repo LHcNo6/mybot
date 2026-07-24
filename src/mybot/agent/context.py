@@ -12,10 +12,15 @@ This aligns with nananobot's ``SessionManager.retain_recent_legal_suffix``
 
 Stage 6.2: also returns the dropped body slice so the caller can hand
 it to :mod:`mybot.agent.summarize` for LLM-based summarization.
+
+Stage 6.3: adds :func:`estimate_tokens`, a character-based heuristic
+that lets callers trigger compaction on a token budget instead of a
+fixed turn count.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -69,3 +74,51 @@ def compact_messages(
 
     kept_full = ([system, *kept_body] if system is not None else kept_body)
     return kept_full, dropped_body
+
+
+def compact_for_budget(
+    messages: list[dict[str, Any]],
+    token_budget: int,
+    min_user_turns: int = 2,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Compact until ``estimate_tokens(kept) <= token_budget``.
+
+    Linear-scans :func:`compact_messages` with progressively smaller
+    ``max_user_turns`` until the kept slice fits the budget. Falls back
+    to ``min_user_turns`` when the budget is impossibly tight.
+
+    Used by Stage 6.3: token-budget-driven compaction trigger.
+    """
+    if estimate_tokens(messages) <= token_budget:
+        return list(messages), []
+    user_count = sum(1 for m in messages if m.get("role") == "user")
+    for target in range(user_count, min_user_turns - 1, -1):
+        kept, dropped = compact_messages(messages, max_user_turns=target)
+        if estimate_tokens(kept) <= token_budget:
+            return kept, dropped
+    return compact_messages(messages, max_user_turns=min_user_turns)
+
+
+def estimate_tokens(messages: list[dict[str, Any]]) -> int:
+    """Heuristic token estimate: ~4 chars per token plus per-message overhead.
+
+    Mirrors the spirit of nananobot's
+    ``nanobot/utils/helpers.py:estimate_message_tokens`` — a character
+    count divided by four, plus a small per-message overhead to account
+    for the role label and JSON framing. No tokenizer dependency.
+    """
+    total = 0
+    for msg in messages:
+        total += 4  # role label + structural overhead
+        content = msg.get("content")
+        if isinstance(content, str):
+            total += len(content) // 4
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict):
+                    total += len(json.dumps(part, ensure_ascii=False)) // 4
+        for tc in msg.get("tool_calls") or []:
+            total += len(json.dumps(tc, ensure_ascii=False)) // 4
+        if msg.get("tool_call_id"):
+            total += 4
+    return total

@@ -37,7 +37,9 @@ from dotenv import load_dotenv
 from mybot.agent import (
     AgentRunSpec,
     AgentRunner,
+    compact_for_budget,
     compact_messages,
+    estimate_tokens,
     summarize_dropped,
 )
 from mybot.providers import OpenAICompatProvider
@@ -52,8 +54,10 @@ SYSTEM_PROMPT = (
 )
 EXIT_COMMANDS = {"/exit", "/quit"}
 MAX_USER_TURNS = 12
+DEFAULT_TOKEN_BUDGET = 8000
 SUMMARY_PREFIX = "[Earlier conversation summary]\n"
 SESSION_KEY = os.environ.get("MYBOT_SESSION_KEY", "default")
+TOKEN_BUDGET = int(os.environ.get("MYBOT_TOKEN_BUDGET", str(DEFAULT_TOKEN_BUDGET)))
 
 
 async def stream_printer(delta: str) -> None:
@@ -121,7 +125,16 @@ async def main() -> None:
 
             messages.append({"role": "user", "content": user_input})
 
-            kept, dropped = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
+            pre_tokens = estimate_tokens(messages)
+            user_turns = sum(1 for m in messages if m.get("role") == "user")
+            over_budget = pre_tokens > TOKEN_BUDGET
+            over_turns = user_turns > MAX_USER_TURNS
+
+            kept, dropped = messages, []
+            if over_budget:
+                kept, dropped = compact_for_budget(messages, TOKEN_BUDGET)
+            elif over_turns:
+                kept, dropped = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
             summary_text: str | None = None
             already_count = max(0, meta.last_consolidated - len(kept))
             unconsolidated_dropped = dropped[already_count:]
@@ -154,8 +167,12 @@ async def main() -> None:
             save_messages(SESSION_KEY, messages, meta)
 
             tail = f" [summary={len(summary_text or '')}c]" if summary_text else ""
+            post_tokens = estimate_tokens(messages)
+            compact_reason = "budget" if over_budget else ("turns" if over_turns else "none")
             print(
                 f"\n[msgs={len(messages)}, "
+                f"tokens~{post_tokens}, "
+                f"compact={compact_reason}, "
                 f"tools_used={result.tools_used}, "
                 f"stop_reason={result.stop_reason}, "
                 f"cursor={meta.last_consolidated}{tail}]\n"
