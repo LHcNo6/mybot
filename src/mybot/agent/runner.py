@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from mybot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
     from mybot.tools.registry import ToolRegistry
 
+HOOK_PRE_LLM_CALL = "pre_llm_call"
+HOOK_POST_LLM_CALL = "post_llm_call"
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,10 +31,11 @@ class AgentRunSpec:
     tools: Any = None                     # ToolRegistry with get_definitions() + execute()
     max_iterations: int = 10
     model: str | None = None
-    provider: Any | None = None           # LLMProvider; can also pass to run()
+    provider: Any = None                   # LLMProvider; can also pass to run()
     on_stream: Callable[[str], Awaitable[None]] | None = None
     on_stream_end: Callable[..., Awaitable[None]] | None = None
     extra: dict[str, Any] = field(default_factory=dict)  # forwarded to provider
+    hooks: Any = None                     # HookManager (Stage 8.1) — emits pre/post LLM call
 
 
 @dataclass
@@ -65,12 +69,28 @@ class AgentRunner:
             kwargs: dict[str, Any] = dict(spec.extra)
             tools_defs = spec.tools.get_definitions() if has_tools else None
 
+            if spec.hooks is not None:
+                await spec.hooks.emit(
+                    HOOK_PRE_LLM_CALL,
+                    messages=messages,
+                    iteration=iteration,
+                    max_iterations=spec.max_iterations,
+                )
+
             response = await self._request_model(
                 provider, messages, tools_defs,
                 on_stream=spec.on_stream if wants_streaming else None,
                 model=spec.model,
                 **kwargs,
             )
+
+            if spec.hooks is not None:
+                await spec.hooks.emit(
+                    HOOK_POST_LLM_CALL,
+                    response=response,
+                    iteration=iteration,
+                    max_iterations=spec.max_iterations,
+                )
 
             if response.should_execute_tools and tools_defs:
                 messages.append(self._build_assistant_message(response))
