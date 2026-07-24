@@ -6,7 +6,9 @@ from mybot.agent.context import (
 from mybot.agent.hooks import HookManager
 from mybot.agent.runner import (
     HOOK_POST_LLM_CALL,
+    HOOK_POST_TOOL_CALL,
     HOOK_PRE_LLM_CALL,
+    HOOK_PRE_TOOL_CALL,
     AgentRunResult,
     AgentRunSpec,
     AgentRunner,
@@ -18,7 +20,9 @@ __all__ = [
     "AgentRunSpec",
     "AgentRunner",
     "HOOK_POST_LLM_CALL",
+    "HOOK_POST_TOOL_CALL",
     "HOOK_PRE_LLM_CALL",
+    "HOOK_PRE_TOOL_CALL",
     "HookManager",
     "compact_for_budget",
     "compact_messages",

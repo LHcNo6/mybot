@@ -86,6 +86,15 @@ def build_hooks() -> HookManager:
             f"tool_calls={tool_count}"
         )
 
+    @hooks.on("pre_tool_call")
+    def log_tool_call(name: str, arguments: object, **_: object) -> None:
+        print(f"[tool] → {name}({arguments})")
+
+    @hooks.on("post_tool_call")
+    def log_tool_result(name: str, result: object, **_: object) -> None:
+        snippet = str(result)[:80].replace("\n", " ")
+        print(f"[tool] ← {name} → {snippet}")
+
     @hooks.on("post_llm_call")
     def broken_hook(**_: object) -> None:
         # Intentionally raise to demonstrate resilience: this should NOT

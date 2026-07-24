@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 HOOK_PRE_LLM_CALL = "pre_llm_call"
 HOOK_POST_LLM_CALL = "post_llm_call"
+HOOK_PRE_TOOL_CALL = "pre_tool_call"
+HOOK_POST_TOOL_CALL = "post_tool_call"
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,12 @@ class AgentRunner:
 
             if response.should_execute_tools and tools_defs:
                 messages.append(self._build_assistant_message(response))
-                results = await self._execute_tools(spec.tools, response.tool_calls)
+                results = await self._execute_tools(
+                    spec.tools,
+                    response.tool_calls,
+                    hooks=spec.hooks,
+                    iteration=iteration,
+                )
                 for tc, result in zip(response.tool_calls, results):
                     messages.append({
                         "role": "tool",
@@ -154,11 +161,29 @@ class AgentRunner:
         self,
         tools: Any,
         tool_calls: list[Any],
+        *,
+        hooks: Any = None,
+        iteration: int = 0,
     ) -> list[Any]:
         results: list[Any] = []
         for tc in tool_calls:
             logger.info("Tool call: %s(%s)", tc.name, tc.arguments)
+            if hooks is not None:
+                await hooks.emit(
+                    HOOK_PRE_TOOL_CALL,
+                    name=tc.name,
+                    arguments=tc.arguments,
+                    iteration=iteration,
+                )
             result = await tools.execute(tc.name, tc.arguments)
+            if hooks is not None:
+                await hooks.emit(
+                    HOOK_POST_TOOL_CALL,
+                    name=tc.name,
+                    arguments=tc.arguments,
+                    result=result,
+                    iteration=iteration,
+                )
             results.append(result)
         return results
 
