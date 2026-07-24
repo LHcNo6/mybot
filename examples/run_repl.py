@@ -41,7 +41,7 @@ from mybot.agent import (
     summarize_dropped,
 )
 from mybot.providers import OpenAICompatProvider
-from mybot.session import load_messages, save_messages
+from mybot.session import load_or_init, new_meta, save_messages, touch
 from mybot.tools import EchoTool, GetTimeTool, ReverseTool, ToolRegistry
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -95,7 +95,7 @@ async def main() -> None:
     configure_stdout()
     registry = build_registry()
 
-    saved = load_messages(SESSION_KEY)
+    saved, meta = load_or_init(SESSION_KEY)
     messages: list[dict] = (
         saved if saved else [{"role": "system", "content": SYSTEM_PROMPT}]
     )
@@ -104,7 +104,8 @@ async def main() -> None:
         print(
             f"mybot REPL ready (model={provider.get_default_model()}, "
             f"session={SESSION_KEY}, "
-            f"resumed={bool(saved)}). Type /exit to quit.\n"
+            f"resumed={bool(saved)}, "
+            f"created={meta.created_at}). Type /exit to quit.\n"
         )
         while True:
             try:
@@ -142,7 +143,8 @@ async def main() -> None:
             )
             result = await AgentRunner().run(spec)
             messages = result.messages
-            save_messages(SESSION_KEY, messages)
+            touch(meta)
+            save_messages(SESSION_KEY, messages, meta)
 
             tail = f" [summary={len(summary_text or '')}c]" if summary_text else ""
             print(
