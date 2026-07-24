@@ -123,15 +123,22 @@ async def main() -> None:
 
             kept, dropped = compact_messages(messages, max_user_turns=MAX_USER_TURNS)
             summary_text: str | None = None
-            if dropped:
+            already_count = max(0, meta.last_consolidated - len(kept))
+            unconsolidated_dropped = dropped[already_count:]
+            if unconsolidated_dropped:
                 summary_text = await summarize_dropped(
-                    provider, dropped, model=provider.get_default_model()
+                    provider,
+                    unconsolidated_dropped,
+                    model=provider.get_default_model(),
+                    prev_summary=meta.last_summary,
                 )
                 if summary_text:
                     kept.insert(
                         1,
                         {"role": "system", "content": SUMMARY_PREFIX + summary_text},
                     )
+                    meta.last_summary = summary_text
+                    meta.last_consolidated = len(kept)
             messages = kept
 
             spec = AgentRunSpec(
@@ -150,7 +157,8 @@ async def main() -> None:
             print(
                 f"\n[msgs={len(messages)}, "
                 f"tools_used={result.tools_used}, "
-                f"stop_reason={result.stop_reason}{tail}]\n"
+                f"stop_reason={result.stop_reason}, "
+                f"cursor={meta.last_consolidated}{tail}]\n"
             )
 
 
