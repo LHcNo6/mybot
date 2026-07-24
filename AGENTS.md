@@ -121,7 +121,7 @@ regressions.
 | 6.1 | Sliding-window compaction (user-turn aligned) | ✅ |
 | 6.2 | LLM-summarization of dropped messages | ✅ |
 | 7 | Session persistence to JSONL | ✅ |
-| 7.1 | Metadata persistence (title, created_at, updated_at, cursor) | 🔜 next |
+| 7.1 | Metadata persistence (title, created_at, updated_at, cursor) | ✅ |
 
 ## Reference
 
