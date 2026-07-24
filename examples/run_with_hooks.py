@@ -68,6 +68,18 @@ def build_hooks() -> HookManager:
     hooks = HookManager()
     state: dict[str, float] = {}
 
+    @hooks.on("pre_run")
+    def start_session(message_count: int, max_iterations: int, **_: object) -> None:
+        print(f"[run] start: {message_count} messages, max_iter={max_iterations}")
+
+    @hooks.on("post_run")
+    def end_session(result, **_: object) -> None:
+        print(
+            f"[run] end: stop_reason={result.stop_reason}, "
+            f"tools_used={result.tools_used}, "
+            f"final_content_len={len(result.final_content or '')}"
+        )
+
     @hooks.on("pre_llm_call")
     def start_timer(**_: object) -> None:
         state["start"] = time.monotonic()

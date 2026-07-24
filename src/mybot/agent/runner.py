@@ -21,6 +21,8 @@ HOOK_PRE_LLM_CALL = "pre_llm_call"
 HOOK_POST_LLM_CALL = "post_llm_call"
 HOOK_PRE_TOOL_CALL = "pre_tool_call"
 HOOK_POST_TOOL_CALL = "post_tool_call"
+HOOK_PRE_RUN = "pre_run"
+HOOK_POST_RUN = "post_run"
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,14 @@ class AgentRunner:
 
         has_tools = spec.tools is not None
         wants_streaming = spec.on_stream is not None
+
+        if spec.hooks is not None:
+            await spec.hooks.emit(
+                HOOK_PRE_RUN,
+                message_count=len(messages),
+                max_iterations=spec.max_iterations,
+                has_tools=has_tools,
+            )
 
         for iteration in range(spec.max_iterations):
             kwargs: dict[str, Any] = dict(spec.extra)
@@ -117,20 +127,40 @@ class AgentRunner:
 
             final = response.content or ""
             messages.append({"role": "assistant", "content": final})
-            return AgentRunResult(
+            return await self._finish(
+                spec, messages, tools_used, stop_reason,
                 final_content=final,
-                messages=messages,
-                tools_used=tools_used,
-                stop_reason=stop_reason,
             )
 
         stop_reason = "max_iterations"
-        return AgentRunResult(
+        return await self._finish(
+            spec, messages, tools_used, stop_reason,
             final_content=None,
+        )
+
+    async def _finish(
+        self,
+        spec: AgentRunSpec,
+        messages: list[dict[str, Any]],
+        tools_used: list[str],
+        stop_reason: str,
+        *,
+        final_content: str | None,
+    ) -> AgentRunResult:
+        """Build the AgentRunResult, emitting post_run hook before returning."""
+        result = AgentRunResult(
+            final_content=final_content,
             messages=messages,
             tools_used=tools_used,
             stop_reason=stop_reason,
         )
+        if spec.hooks is not None:
+            await spec.hooks.emit(
+                HOOK_POST_RUN,
+                result=result,
+                stop_reason=stop_reason,
+            )
+        return result
 
     async def _request_model(
         self,
