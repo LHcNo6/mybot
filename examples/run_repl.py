@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -40,6 +41,7 @@ from mybot.agent import (
     summarize_dropped,
 )
 from mybot.providers import OpenAICompatProvider
+from mybot.session import load_messages, save_messages
 from mybot.tools import EchoTool, GetTimeTool, ReverseTool, ToolRegistry
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -51,6 +53,7 @@ SYSTEM_PROMPT = (
 EXIT_COMMANDS = {"/exit", "/quit"}
 MAX_USER_TURNS = 12
 SUMMARY_PREFIX = "[Earlier conversation summary]\n"
+SESSION_KEY = os.environ.get("MYBOT_SESSION_KEY", "default")
 
 
 async def stream_printer(delta: str) -> None:
@@ -90,13 +93,18 @@ def configure_stdout() -> None:
 async def main() -> None:
     configure_logging()
     configure_stdout()
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     registry = build_registry()
+
+    saved = load_messages(SESSION_KEY)
+    messages: list[dict] = (
+        saved if saved else [{"role": "system", "content": SYSTEM_PROMPT}]
+    )
 
     async with OpenAICompatProvider() as provider:
         print(
-            f"mybot REPL ready (model={provider.get_default_model()}). "
-            f"Type /exit to quit.\n"
+            f"mybot REPL ready (model={provider.get_default_model()}, "
+            f"session={SESSION_KEY}, "
+            f"resumed={bool(saved)}). Type /exit to quit.\n"
         )
         while True:
             try:
@@ -134,6 +142,7 @@ async def main() -> None:
             )
             result = await AgentRunner().run(spec)
             messages = result.messages
+            save_messages(SESSION_KEY, messages)
 
             tail = f" [summary={len(summary_text or '')}c]" if summary_text else ""
             print(
