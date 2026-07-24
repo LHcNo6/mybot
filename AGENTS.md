@@ -104,7 +104,7 @@ regressions.
 | Provider count | 2 (mock + openai_compat) | 12+ | As needed per real model usage |
 | Hooks system | None | `HookManager` with pre/post LLM, pre/post tool | Stage ~8 |
 | Session / memory | JSONL persistence only; no metadata, no cursor, no TTL | `SessionManager` with metadata, `last_consolidated`, idle-TTL | 7.1+ (metadata), 7.2+ (cursor), 8+ (TTL) |
-| Message compaction | count-based truncation + LLM summary on REPL run | TTL-based auto-compaction in `Manager.compact()` | nananobot's TTL trigger can be added once a timer source is wired in (post-Hooks) |
+| Message compaction | token-budget + count-based truncation + LLM summary | TTL-based auto-compaction in `Manager.compact()` | nananobot's TTL trigger can be added once a timer source is wired in (post-Hooks) |
 
 ## Stage log
 
@@ -120,6 +120,7 @@ regressions.
 | 5 | Multi-turn REPL | ✅ |
 | 6.1 | Sliding-window compaction (user-turn aligned) | ✅ |
 | 6.2 | LLM-summarization of dropped messages | ✅ |
+| 6.3 | Token-budget compaction trigger + estimate_tokens heuristic | ✅ |
 | 7 | Session persistence to JSONL | ✅ |
 | 7.1 | Metadata persistence (title, created_at, updated_at, cursor) | ✅ |
 | 7.2 | Incremental summarization via prev_summary + cursor | ✅ |
